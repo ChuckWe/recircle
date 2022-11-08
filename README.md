@@ -23,6 +23,7 @@ func main() {
 
 ~~~
 demo文件夹中存放一个案例，当然需要你有科学上网的方式才可爬行。
+实现了一个小说下载成txt文件的爬虫。
 ~~~
 package demo
 
@@ -45,7 +46,7 @@ var (
 
 func init() {
 	demoSpider := spider.NewSpider()
-	demoSpider.UniqueKey = "691shu"
+	demoSpider.UniqueKey = "69shu"
 	demoSpider.SetRules("列表", ListQuery)
 	demoSpider.SetRules("详情页", DetailQuery, DownloadTxt)
 	demoSpider.CloseCallback = func(s *spider.Spider) {
