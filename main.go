@@ -6,7 +6,5 @@ import (
 )
 
 func main() {
-	spider.Sc.SetConcurrent(2)
 	spider.Sc.Init()
-	spider.Sc.Wg.Wait()
 }

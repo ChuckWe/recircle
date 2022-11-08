@@ -19,6 +19,7 @@ type Context struct {
 	Cancel   context.CancelFunc
 	Response *http.Response
 	text     []byte
+	Temp     map[string]interface{}
 }
 
 func initContext() *Context {
@@ -26,6 +27,7 @@ func initContext() *Context {
 	return &Context{
 		Ctx:    ctx,
 		Cancel: cancel,
+		Temp:   make(map[string]interface{}),
 	}
 }
 

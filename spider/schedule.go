@@ -1,6 +1,7 @@
 package spider
 
 import (
+	"errors"
 	"fmt"
 	"github.com/chuckwe/recircle/downloader"
 	"sync"
@@ -30,26 +31,29 @@ type Schedule struct {
 	ResourcePoolList chan Resource
 	ConcurrentNum    int                // 并发数量
 	spiders          map[string]*Spider // 爬虫
-	Wg               sync.WaitGroup
 	lock             sync.Locker
+	ticker           *time.Ticker
 }
 
 func NewSchedule() *Schedule {
 	return &Schedule{
-		ResourcePoolList: make(chan Resource, 1000),
-		lock:             &sync.Mutex{},
-		spiders:          make(map[string]*Spider),
-		Wg:               sync.WaitGroup{},
+		lock:    &sync.Mutex{},
+		spiders: make(map[string]*Spider),
+		ticker:  time.NewTicker(time.Second),
 	}
 }
 
-func (s *Schedule) AddResource(resource Resource) *Schedule {
-	s.ResourcePoolList <- resource
-	return s
+func (s *Schedule) AddResource(resource Resource) (err error) {
+	sp, ok := s.spiders[resource.SpiderUniqueKey]
+	if !ok {
+		return errors.New(fmt.Sprintf("----------暂无[%s]爬虫----------", resource.SpiderUniqueKey))
+	}
+	sp.resource <- resource
+	return
 }
 
 func (s *Schedule) Close() {
-	close(s.ResourcePoolList)
+	return
 }
 
 func (s *Schedule) Register(spider *Spider) *Schedule {
@@ -59,51 +63,28 @@ func (s *Schedule) Register(spider *Spider) *Schedule {
 	return s
 }
 
-func (s *Schedule) SetConcurrent(num int) *Schedule {
-	s.ConcurrentNum = num
+func (s *Schedule) UnReg(spider *Spider) *Schedule {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	delete(s.spiders, spider.UniqueKey)
 	return s
 }
 
 func (s *Schedule) Init() {
-	defer func() {
-		if err := recover(); err != nil {
-			s.Init()
-		}
-	}()
-	// 调度超时直接关闭调度
-	if s.ConcurrentNum == 0 {
-		s.ConcurrentNum = 1
+	for _, sp := range s.spiders {
+		go sp.Start()
 	}
-	s.Wg.Add(s.ConcurrentNum)
-	for i := s.ConcurrentNum; i > 0; i-- {
-		go func(i int) {
-			for {
-				timer := time.NewTimer(time.Second * 10)
-				select {
-				case r, ok := <-s.ResourcePoolList:
-					if !ok {
-						fmt.Println("关闭爬虫:", i)
-						s.Wg.Done()
-						return
-					}
-					s.scheduleSpider(r)
-				case <-timer.C:
-					s.Close()
-					fmt.Println("超时关闭爬虫调度")
-				}
+	for {
+		select {
+		case <-s.ticker.C:
+			s.lock.Lock()
+			if len(s.spiders) == 0 {
+				fmt.Println("所有爬虫运行完毕,调度器自动退出...")
+				s.lock.Unlock()
+				s.Close()
+				return
 			}
-		}(i)
+			s.lock.Unlock()
+		}
 	}
-
-}
-
-func (s *Schedule) scheduleSpider(r Resource) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	spider, ok := s.spiders[r.SpiderUniqueKey]
-	if !ok {
-		fmt.Println("暂无爬虫")
-		return
-	}
-	spider.Run(r)
 }
