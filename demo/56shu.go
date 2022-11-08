@@ -19,7 +19,7 @@ var (
 
 func init() {
 	demoSpider := spider.NewSpider()
-	demoSpider.UniqueKey = "691shu"
+	demoSpider.UniqueKey = "69shu"
 	demoSpider.SetRules("列表", ListQuery)
 	demoSpider.SetRules("详情页", DetailQuery, DownloadTxt)
 	demoSpider.CloseCallback = func(s *spider.Spider) {
