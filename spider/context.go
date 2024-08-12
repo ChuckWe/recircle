@@ -20,14 +20,16 @@ type Context struct {
 	Response *http.Response
 	text     []byte
 	Temp     map[string]interface{}
+	Info     map[string]string
 }
 
-func initContext() *Context {
+func initContext(info map[string]string) *Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Context{
 		Ctx:    ctx,
 		Cancel: cancel,
 		Temp:   make(map[string]interface{}),
+		Info:   info,
 	}
 }
 

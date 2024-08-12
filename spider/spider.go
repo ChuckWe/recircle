@@ -4,12 +4,51 @@ import (
 	"errors"
 	"fmt"
 	"github.com/chuckwe/recircle/downloader"
+	"net/http/cookiejar"
 	"sync"
 	"time"
 )
 
+const (
+	DefaultType = "default"
+	RestyType   = "resty"
+	ImocType    = "imroc"
+)
+
 type MiddlewareHandler func(ctx *Context)
 type MiddlewareHandlerErr func(ctx *Context) error
+
+// BaseSpiderConf 基础爬虫配置
+type BaseSpiderConf struct {
+	EnableCookie   bool
+	EnableProxy    bool
+	ProxyUrl       string
+	DownloaderType string
+
+	Cookie *cookiejar.Jar
+}
+
+type Option func(b *BaseSpiderConf)
+
+func NewProxyUrl(value string) Option {
+	return func(b *BaseSpiderConf) {
+		b.ProxyUrl = value
+		b.EnableProxy = true
+	}
+}
+
+func NewCookieJar(cookie *cookiejar.Jar) Option {
+	return func(b *BaseSpiderConf) {
+		b.EnableCookie = true
+		b.Cookie = cookie
+	}
+}
+
+func NewDownloader(value string) Option {
+	return func(b *BaseSpiderConf) {
+		b.DownloaderType = value
+	}
+}
 
 type Spider struct {
 	UniqueKey     string                         // 唯一标识符
@@ -20,6 +59,8 @@ type Spider struct {
 	CloseCallback func(s *Spider)                // 回调关闭
 	timeTicker    time.Duration                  // 爬虫自我探活时间
 
+	rangeTime time.Duration // 每次爬虫间隔时间
+
 	concurrent int
 	resource   chan Resource
 	signal     chan struct{}
@@ -27,19 +68,42 @@ type Spider struct {
 	wg         sync.WaitGroup
 }
 
-func NewSpider() *Spider {
-	return &Spider{
-		Downloader:   downloader.New(),
+func NewSpider(opts ...Option) *Spider {
+	b := &BaseSpiderConf{}
+
+	for _, v := range opts {
+		v(b)
+	}
+	if b.DownloaderType == "" {
+		b.DownloaderType = DefaultType
+	}
+	s := &Spider{
 		lock:         &sync.Mutex{},
 		RuleHandlers: make(map[string][]MiddlewareHandler),
-		resource:     make(chan Resource, 1000),
+		resource:     make(chan Resource, 100000),
 		wg:           sync.WaitGroup{},
 		timeTicker:   time.Second * 10,
 	}
+	switch b.DownloaderType {
+	case DefaultType:
+		s.Downloader = downloader.New(b.Cookie)
+	case RestyType:
+		s.Downloader = downloader.NewResty(b.Cookie)
+	case ImocType:
+		s.Downloader = downloader.NewImroc(b.Cookie)
+	default:
+		s.Downloader = downloader.New(b.Cookie)
+	}
+	return s
 }
 
 func (s *Spider) SetConcurrent(num int) *Spider {
 	s.concurrent = num
+	return s
+}
+
+func (s *Spider) SetRangeTime(sleepTime int) *Spider {
+	s.rangeTime = time.Millisecond * time.Duration(sleepTime)
 	return s
 }
 
@@ -97,6 +161,7 @@ func (s *Spider) Start() {
 						s.wg.Done()
 						return
 					}
+					time.Sleep(s.rangeTime)
 					err = s.run(r)
 					if err != nil {
 						fmt.Println(err)
@@ -129,9 +194,10 @@ func (s *Spider) run(r Resource) (err error) {
 	if _, ok := s.RuleHandlers[r.Rule]; !ok {
 		return errors.New("无此规则")
 	}
-	ctx := initContext()
+	ctx := initContext(r.info)
 	defer func() {
 		if err := recover(); err != nil {
+			fmt.Println(err)
 			ctx.Cancel()
 		}
 	}()

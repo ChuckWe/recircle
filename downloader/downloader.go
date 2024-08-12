@@ -134,7 +134,7 @@ func (d *DefaultDownloader) buildClient(param *Param) *http.Client {
 			}
 			c, err = net.DialTimeout(network, ipPort, param.dialTimeout)
 			if err != nil {
-				fmt.Println("net dial timeout :", err)
+				fmt.Println("net dial timeout :", network, ipPort, err)
 				return nil, err
 			}
 			if param.connTimeout > 0 {
@@ -158,6 +158,7 @@ func (d *DefaultDownloader) buildClient(param *Param) *http.Client {
 
 // httpRequest send uses the given *http.Request to make an HTTP request.
 func (d *DefaultDownloader) httpRequest(param *Param) (resp *http.Response, err error) {
+
 	req, err := http.NewRequest(param.method, param.url.String(), param.body)
 	if err != nil {
 		return nil, err

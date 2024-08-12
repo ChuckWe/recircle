@@ -12,17 +12,20 @@ var Sc = NewSchedule()
 
 type Resource struct {
 	SpiderUniqueKey string
+	info            map[string]string
 	*downloader.Request
 }
 
-func NewResource(key, rule, link string) Resource {
+func NewResource(key, rule, link string, info map[string]string) Resource {
 	return Resource{
 		SpiderUniqueKey: key,
+		info:            info,
 		Request: &downloader.Request{
 			Rule:        rule,
 			Url:         link,
-			DialTimeout: time.Second * 3,
-			ConnTimeout: time.Second * 2,
+			DialTimeout: time.Second * 10,
+			ConnTimeout: time.Second * 9,
+			TryTimes:    2,
 		},
 	}
 }

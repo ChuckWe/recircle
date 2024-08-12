@@ -58,12 +58,12 @@ func NewParam(req *Request) (param *Param, err error) {
 	case "POST":
 		param.method = method
 		param.header.Add("Content-Type", "application/x-www-form-urlencoded")
-		param.body = strings.NewReader(req.PastData)
+		param.body = strings.NewReader(req.PostData)
 	case "POST-M":
 		param.method = "POST"
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
-		values, _ := url.ParseQuery(req.PastData)
+		values, _ := url.ParseQuery(req.PostData)
 		for k, vs := range values {
 			for _, v := range vs {
 				writer.WriteField(k, v)

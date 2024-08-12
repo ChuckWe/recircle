@@ -12,7 +12,7 @@ type Request struct {
 	retry      bool   // 是否重试
 	method     string
 	Header     http.Header
-	PastData   string // 参数
+	PostData   string // 参数
 	retryTimes int    // 重试几次
 	proxy      string
 	// 是否使用cookies，在Spider的EnableCookie设置
@@ -31,6 +31,10 @@ type Request struct {
 	// when RedirectTimes less than 0, redirect times is 0
 	RedirectTimes int
 	lock          sync.Locker
+
+	Cloudflare bool
+	JsEnable   bool
+	JsFunc     func(request *Request) (*http.Response, error)
 }
 
 // SetRetry 设置重试
